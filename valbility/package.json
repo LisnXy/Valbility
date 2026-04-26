@@ -1,7 +1,7 @@
 {
   "name": "valbility",
   "productName": "Valbility",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "Game audio mute utility for VALORANT",
   "main": "src/main.js",
   "scripts": {
@@ -32,7 +32,13 @@
       "uninstallDisplayName": "Valbility Uninstaller",
       "license": "license.md",
       "allowToChangeInstallationDirectory": false
-    }
+    },
+    "asarUnpack": [
+      "node_modules/active-win/lib/binding/**/*.node",
+      "node_modules/native-sound-mixer/dist/addons/win-sound-mixer.node",
+      "node_modules/ps-list/fastlist.exe",
+      "node_modules/uiohook-napi/prebuilds/win32-x64/uiohook-napi.node"
+    ]
   },
   "keywords": [
     "Valbility",

@@ -8,9 +8,11 @@ const {
   BrowserWindow,
   ipcMain,
   Menu,
+  nativeImage,
   shell,
   Tray,
 } = require("electron");
+const fs = require("fs");
 const path = require("path");
 
 // Local Data
@@ -29,14 +31,6 @@ autoUpdater.autoInstallOnAppQuit = true;
 const isDevMode = false;
 
 let valorantMixer = new Mixer("VALORANT", "VALORANT");
-const defaultTrayIconPath = path.join(
-  __dirname,
-  "../../valbility/assets/icons/16_16.png"
-);
-const focusMuteTrayIconPath = path.join(
-  __dirname,
-  "../../valbility/assets/icons/16_16_focus.png"
-);
 
 const styles = {
   VALORANT: {
@@ -60,12 +54,25 @@ let isValorantFocused = false;
 let isRiotClientStarted = false;
 let isGameHotkeyDown = false;
 let isGlobalKeyListenerStarted = false;
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+
+if (!gotSingleInstanceLock) {
+  app.quit();
+}
+
+process.on("uncaughtException", (error) => {
+  logError("uncaughtException", error);
+});
+
+process.on("unhandledRejection", (error) => {
+  logError("unhandledRejection", error);
+});
 
 const createWindow = () => {
   // Creates the browser window.
   mainWindow = new BrowserWindow({
     title: "Valbility",
-    icon: path.join(__dirname, "../../valbility/assets/icons/256_256.ico"),
+    icon: getAssetPath("assets", "icons", "256_256.ico"),
     width: 400,
     height: 190,
     resizable: false,
@@ -159,6 +166,11 @@ const createWindow = () => {
 
 // Waits for Electron initialization and creates browser window.
 app.whenReady().then(() => {
+  if (!gotSingleInstanceLock) {
+    return;
+  }
+
+  logInfo(`starting Valbility ${app.getVersion()}, packaged=${app.isPackaged}`);
   createWindow();
   createTray();
   startGlobalKeyListener();
@@ -169,6 +181,7 @@ app.whenReady().then(() => {
   ]);
 
   listener.started(async ({ name }) => {
+    logInfo(`process started: ${name}`);
     if (name === "VALORANT.exe") {
       updateStyle(styles.VALORANT);
 
@@ -183,6 +196,7 @@ app.whenReady().then(() => {
   });
 
   listener.exited(async ({ name }) => {
+    logInfo(`process exited: ${name}`);
     if (name === "VALORANT.exe") {
       valorantMixer.unmute();
 
@@ -224,6 +238,10 @@ app.whenReady().then(() => {
   });
 
   autoUpdater.checkForUpdates();
+});
+
+app.on("second-instance", () => {
+  showMainWindow();
 });
 
 autoUpdater.on("update-available", (info) => {
@@ -295,7 +313,7 @@ function applyMuteState() {
 }
 
 function createTray() {
-  tray = new Tray(getTrayIconPath());
+  tray = new Tray(getTrayIcon());
   tray.setToolTip("Valbility");
   tray.setContextMenu(
     Menu.buildFromTemplate([
@@ -314,8 +332,15 @@ function createTray() {
 
 function getTrayIconPath() {
   return config.get("is-focus-muted")
-    ? focusMuteTrayIconPath
-    : defaultTrayIconPath;
+    ? getAssetPath("assets", "icons", "16_16_focus.png")
+    : getAssetPath("assets", "icons", "16_16.png");
+}
+
+function getTrayIcon() {
+  const iconPath = getTrayIconPath();
+  const image = nativeImage.createFromPath(iconPath);
+  logInfo(`tray icon path: ${iconPath}, empty=${image.isEmpty()}`);
+  return image;
 }
 
 function updateTrayIcon() {
@@ -323,7 +348,7 @@ function updateTrayIcon() {
     return;
   }
 
-  tray.setImage(getTrayIconPath());
+  tray.setImage(getTrayIcon());
 }
 
 function showMainWindow() {
@@ -371,10 +396,15 @@ function startGlobalKeyListener() {
     return;
   }
 
-  uIOhook.on("keydown", handleGlobalKeyDown);
-  uIOhook.on("keyup", handleGlobalKeyUp);
-  uIOhook.start();
-  isGlobalKeyListenerStarted = true;
+  try {
+    uIOhook.on("keydown", handleGlobalKeyDown);
+    uIOhook.on("keyup", handleGlobalKeyUp);
+    uIOhook.start();
+    isGlobalKeyListenerStarted = true;
+    logInfo("global key listener started");
+  } catch (error) {
+    logError("failed to start global key listener", error);
+  }
 }
 
 function stopGlobalKeyListener() {
@@ -441,5 +471,33 @@ function toggleGameMute() {
 
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send("update-audio-toggle", "is-game-muted", isGameMuted);
+  }
+}
+
+function getAssetPath(...segments) {
+  return path.join(app.getAppPath(), ...segments);
+}
+
+function getLogPath() {
+  return path.join(app.getPath("userData"), "valbility.log");
+}
+
+function logInfo(message) {
+  writeLog("INFO", message);
+}
+
+function logError(message, error) {
+  writeLog("ERROR", `${message}: ${error && error.stack ? error.stack : error}`);
+}
+
+function writeLog(level, message) {
+  try {
+    fs.mkdirSync(app.getPath("userData"), { recursive: true });
+    fs.appendFileSync(
+      getLogPath(),
+      `[${new Date().toISOString()}] ${level} ${message}\n`
+    );
+  } catch {
+    // Logging must never break the app.
   }
 }
