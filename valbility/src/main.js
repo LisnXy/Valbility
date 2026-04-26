@@ -108,7 +108,7 @@ const createWindow = () => {
 
   ipcMain.on("close-or-minizmize-app", (e, functionality) => {
     if (functionality === "minimize-btn") {
-      mainWindow.minimize();
+      hideToTray();
     } else {
       mainWindow.close();
     }
@@ -138,7 +138,12 @@ const createWindow = () => {
     }
 
     event.preventDefault();
-    mainWindow.hide();
+    hideToTray();
+  });
+
+  mainWindow.on("minimize", (event) => {
+    event.preventDefault();
+    hideToTray();
   });
 };
 
@@ -294,7 +299,7 @@ function createTray() {
       },
     ])
   );
-  tray.on("double-click", showMainWindow);
+  tray.on("double-click", toggleMainWindow);
 }
 
 function showMainWindow() {
@@ -302,8 +307,33 @@ function showMainWindow() {
     createWindow();
   }
 
+  if (mainWindow.isMinimized()) {
+    mainWindow.restore();
+  }
+
   mainWindow.show();
   mainWindow.focus();
+}
+
+function hideToTray() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  mainWindow.hide();
+}
+
+function toggleMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createWindow();
+    return;
+  }
+
+  if (mainWindow.isVisible()) {
+    hideToTray();
+  } else {
+    showMainWindow();
+  }
 }
 
 function quitApp() {
