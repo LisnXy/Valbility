@@ -2,14 +2,14 @@
   "name": "valbility",
   "productName": "Valbility",
   "version": "0.2.75",
-  "description": "Voice and audio accessibility tool for VALORANT",
+  "description": "Game audio mute utility for VALORANT",
   "main": "src/main.js",
   "scripts": {
     "start": "electron .",
     "lint": "echo \"No linting configured\"",
     "build": "electron-builder"
   },
-  "repository": "https://github.com/markzhdan/Valbility",
+  "repository": "https://github.com/LisnXy/Valbility",
   "publish": {
     "provider": "github",
     "releaseType": "release"
@@ -22,7 +22,8 @@
       "target": [
         "nsis"
       ],
-      "icon": "./assets/icons/256_256.ico"
+      "icon": "./assets/icons/256_256.ico",
+      "requestedExecutionLevel": "requireAdministrator"
     },
     "nsis": {
       "oneClick": true,
@@ -36,7 +37,6 @@
   "keywords": [
     "Valbility",
     "VALORANT",
-    "Voice Activity",
     "Game Mute",
     "Auto Mute",
     "Accessibility"

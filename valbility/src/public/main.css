@@ -316,7 +316,7 @@ nav div {
 
   display: flex;
   flex-direction: row;
-  justify-content: space-evenly;
+  justify-content: center;
   align-items: end;
   margin-bottom: 0.25rem;
 }

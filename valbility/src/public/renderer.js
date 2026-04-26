@@ -12,11 +12,7 @@ const statusText = document.getElementById("game-status");
 const versionText = document.getElementById("version");
 const updaterText = document.getElementById("updater");
 
-const externalLinkURLS = [
-  "https://twitter.com/valbility", // Twitter
-  "https://github.com/markzhdan/valbility", // GitHub
-  "http://valbility.com/", // Website
-];
+const githubURL = "https://github.com/LisnXy/Valbility";
 
 window.addEventListener("DOMContentLoaded", () => {
   versionText.innerText = `Version • ${window.electronAPI.getValbilityVersion()}`;
@@ -67,11 +63,8 @@ resetButton.addEventListener("click", () => {
   window.electronAPI.resetConfigToDefault();
 });
 
-const linkButtons = document.querySelectorAll("a.link");
-linkButtons.forEach(function (button, i) {
-  button.addEventListener("click", () =>
-    window.electronAPI.openURL(externalLinkURLS[i])
-  );
+document.getElementById("github").addEventListener("click", () => {
+  window.electronAPI.openURL(githubURL);
 });
 
 const navButtons = document.querySelectorAll("button.nav-button");

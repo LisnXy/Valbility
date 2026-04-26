@@ -29,6 +29,14 @@ autoUpdater.autoInstallOnAppQuit = true;
 const isDevMode = false;
 
 let valorantMixer = new Mixer("VALORANT", "VALORANT");
+const defaultTrayIconPath = path.join(
+  __dirname,
+  "../../valbility/assets/icons/16_16.png"
+);
+const focusMuteTrayIconPath = path.join(
+  __dirname,
+  "../../valbility/assets/icons/16_16_focus.png"
+);
 
 const styles = {
   VALORANT: {
@@ -88,6 +96,7 @@ const createWindow = () => {
 
   ipcMain.on("refresh-mute-state", () => {
     applyMuteState();
+    updateTrayIcon();
   });
 
   ipcMain.on("register-new-hotkey", async (e, configKey, newKey) => {
@@ -127,6 +136,7 @@ const createWindow = () => {
     valorantMixer.unmute();
     isValorantFocused = false;
     isRiotClientStarted = false;
+    updateTrayIcon();
   });
 
   // Load main html to app window
@@ -285,7 +295,7 @@ function applyMuteState() {
 }
 
 function createTray() {
-  tray = new Tray(path.join(__dirname, "../../valbility/assets/icons/16_16.png"));
+  tray = new Tray(getTrayIconPath());
   tray.setToolTip("Valbility");
   tray.setContextMenu(
     Menu.buildFromTemplate([
@@ -300,6 +310,20 @@ function createTray() {
     ])
   );
   tray.on("double-click", toggleMainWindow);
+}
+
+function getTrayIconPath() {
+  return config.get("is-focus-muted")
+    ? focusMuteTrayIconPath
+    : defaultTrayIconPath;
+}
+
+function updateTrayIcon() {
+  if (!tray) {
+    return;
+  }
+
+  tray.setImage(getTrayIconPath());
 }
 
 function showMainWindow() {
