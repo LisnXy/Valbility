@@ -1,15 +1,7 @@
-import { stopAudioStream, startAudioStream } from "./voice-audio.js";
-
 const muteGameButton = document.getElementById("mute-game-checkbox");
-const muteVoiceButton = document.getElementById("mute-voice-checkbox");
-const thresholdSlider = document.getElementById("threshold-slider");
+const focusMuteButton = document.getElementById("focus-mute-checkbox");
 
-const toggleVoiceKey = document.getElementById("toggle-voice-key");
 const toggleGameKey = document.getElementById("toggle-game-key");
-const voiceHotkey = document.getElementById("voice-key");
-
-const micButton = document.getElementById("mic");
-const micIcon = document.getElementById("mic-icon");
 
 const settingsButton = document.getElementById("settings-button");
 const settingsIcon = document.getElementById("settings-icon");
@@ -33,26 +25,17 @@ window.addEventListener("DOMContentLoaded", () => {
 muteGameButton.addEventListener("click", () => {
   audioButtonsClicked("is-game-muted", muteGameButton.checked);
 });
-muteVoiceButton.addEventListener("click", () => {
-  audioButtonsClicked("is-voice-muted", muteVoiceButton.checked);
+focusMuteButton.addEventListener("click", () => {
+  window.electronAPI.config.set("is-focus-muted", focusMuteButton.checked);
+  window.electronAPI.refreshMuteState();
 });
 function audioButtonsClicked(key, status) {
   // Sets user config to button status [ON/OFF]
   window.electronAPI.config.set(key, status);
-  // Mutes/unmutes process when clicked
+  // Applies the direct mute state immediately.
   window.electronAPI.muteProcesses(key, status);
 }
 
-thresholdSlider.addEventListener("change", () => {
-  window.electronAPI.config.set(
-    "voice-activity-threshold",
-    thresholdSlider.value
-  );
-});
-
-toggleVoiceKey.addEventListener("click", async () => {
-  addNewHotkey(toggleVoiceKey, "toggle-voice-keybind");
-});
 toggleGameKey.addEventListener("click", async () => {
   addNewHotkey(toggleGameKey, "toggle-game-keybind");
 });
@@ -63,21 +46,6 @@ async function addNewHotkey(button, configKey) {
 
   window.electronAPI.registerNewHotkey(configKey, newKeybind);
 }
-voiceHotkey.addEventListener("click", async () => {
-  let newKeybind = await newHotkeyPress();
-  voiceHotkey.value = formatKeyInput(newKeybind);
-  voiceHotkey.blur();
-
-  window.electronAPI.config.set("valorant-voice-keybind", newKeybind);
-});
-
-micButton.addEventListener("click", () => {
-  if (micIcon.className == "fa-solid fa-microphone") {
-    stopAudioStream();
-  } else {
-    startAudioStream();
-  }
-});
 
 settingsButton.addEventListener("click", () => {
   if (menuPopup.style.visibility === "visible") {
@@ -123,9 +91,15 @@ window.electronAPI.updateUpdaterMessage((e, message) => {
 });
 
 window.electronAPI.updateKeybindText((e, keyValue, keyFunctionality) => {
-  keyFunctionality === "toggle-game-keybind"
-    ? (toggleGameKey.value = formatKeyInput(keyValue))
-    : (toggleVoiceKey.value = formatKeyInput(keyValue));
+  if (keyFunctionality === "toggle-game-keybind") {
+    toggleGameKey.value = formatKeyInput(keyValue);
+  }
+});
+
+window.electronAPI.updateAudioToggle((e, configKey, status) => {
+  if (configKey === "is-game-muted") {
+    muteGameButton.checked = status;
+  }
 });
 
 // Waits and returns next keypress
@@ -143,7 +117,7 @@ function newHotkeyPress() {
 function formatKeyInput(newKey) {
   try {
     const newKeybindArray = newKey.match(/[A-Z][a-z]+|[0-9]+/g);
-    return newKeybindArray.join("\n").toUpperCase();
+    return newKeybindArray.join(" ").toUpperCase();
   } catch {
     return newKey.toUpperCase();
   }

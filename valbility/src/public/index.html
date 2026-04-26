@@ -44,45 +44,10 @@
         <h2 id="hotkeys-text">Hotkeys</h2>
         <form class="voice-hotkeys">
           <div class="key-group">
-            <input type="button" id="toggle-voice-key" value="ctrl" />
-            <label for="mute">Mic</label>
-          </div>
-
-          <div class="key-group">
-            <input type="button" id="toggle-game-key" value="alt" />
-            <label for="unmute">Audio</label>
-          </div>
-
-          <div class="key-group">
-            <input type="button" id="voice-key" value="v" />
-            <label for="voice">Voice</label>
+            <label for="toggle-game-key">Audio</label>
+            <input type="button" id="toggle-game-key" value="ALT" />
           </div>
         </form>
-
-        <h2 id="voice-text">Mic Threshold</h2>
-        <div class="microphone">
-          <button id="mic">
-            <i class="fa-solid fa-microphone" id="mic-icon"></i>
-          </button>
-
-          <section class="voice-bar">
-            <div class="voice">
-              <div id="progress"></div>
-              <div id="cover-box"></div>
-            </div>
-
-            <div class="input-slider">
-              <input
-                type="range"
-                min="0"
-                max="145"
-                value="40"
-                class="slider"
-                id="threshold-slider"
-              />
-            </div>
-          </section>
-        </div>
       </section>
 
       <section class="right">
@@ -93,9 +58,9 @@
             <label for="mute-game-checkbox">Mute Game</label>
           </div>
 
-          <div class="mute-voice switch">
-            <input type="checkbox" id="mute-voice-checkbox" class="toggle" />
-            <label for="mute-voice-checkbox">Mute Voice</label>
+          <div class="focus-mute switch">
+            <input type="checkbox" id="focus-mute-checkbox" class="toggle" />
+            <label for="focus-mute-checkbox">Focus Mute</label>
           </div>
         </div>
 
@@ -146,6 +111,5 @@
     </main>
 
     <script type="module" defer src="./renderer.js"></script>
-    <script type="module" defer async src="./voice-audio.js"></script>
   </body>
 </html>

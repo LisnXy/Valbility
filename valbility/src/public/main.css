@@ -35,6 +35,7 @@ body {
 main {
   display: flex;
   flex-direction: row;
+  height: 165px;
 }
 
 nav {
@@ -94,41 +95,46 @@ nav div {
 }
 
 .left {
-  width: 50%;
-  height: 175px;
+  width: 45%;
+  height: 165px;
+  padding-top: 7px;
 }
 
 .right {
-  width: 50%;
-  height: 175px;
+  width: 55%;
+  height: 165px;
+  padding-top: 7px;
 }
 
 #hotkeys-text {
   color: gray;
-  font-size: 1rem;
-  margin-left: 0.75rem;
+  font-size: 0.95rem;
+  margin-left: 0.9rem;
 }
 
 .voice-hotkeys {
   display: flex;
-  justify-content: space-evenly;
-  margin-top: 0.25rem;
+  justify-content: flex-start;
+  margin-top: 0.45rem;
+  margin-left: 0.9rem;
 }
 
 .key-group {
-  display: inline-block;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 38px;
 }
 
 .voice-hotkeys input {
   border: 2px solid black;
-  border-radius: 10px;
-  width: 50px;
-  height: 50px;
+  border-radius: 8px;
+  width: 82px;
+  height: 34px;
   background-color: var(--component-background-color);
   color: white;
   font-family: "Dosis", Helvetica, Arial, sans-serif;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
 
   cursor: pointer;
 }
@@ -139,123 +145,15 @@ nav div {
 
 .key-group label {
   display: block;
-  height: auto;
-  word-wrap: break-word;
-  width: 50px;
-  font-size: 0.75rem;
-}
-
-#voice-text {
-  color: gray;
-  font-size: 1rem;
-  margin-left: 0.75rem;
-  margin-top: 0.5rem;
-}
-
-.microphone {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 5px;
-
-  margin-left: 15px;
-  margin-top: 0.25rem;
-}
-#mic {
-  background: var(--component-background-color);
+  min-width: 42px;
   color: white;
-  font: inherit;
-  border: 2px solid black;
-  border-radius: 5px;
-  width: 25px;
-  height: 25px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-#mic:hover {
-  background-color: var(--comp-color-hover);
-}
-
-.voice-bar {
-  border: 2px solid black;
-  border-radius: 15px;
-  width: var(--slider-range);
-  height: 25px;
-  display: flex;
-  position: relative;
-  overflow: hidden;
-}
-
-.voice {
-  width: var(--slider-range);
-  overflow: hidden;
-  z-index: -2;
-  position: relative;
-}
-
-.voice-bar #progress {
-  height: 25px;
-  z-index: -1;
-  width: var(--slider-range);
-  position: absolute;
-
-  background: rgb(255, 0, 0);
-  background: linear-gradient(
-    90deg,
-    rgba(255, 0, 0, 1) 0%,
-    rgba(237, 167, 0, 1) 22%,
-    rgba(42, 135, 21, 1) 40%,
-    rgba(42, 135, 21, 1) 100%
-  );
-}
-.voice-bar #cover-box {
-  width: var(--slider-range);
-  height: 25px;
-
-  background-color: var(--component-background-color);
-  right: 0;
-  z-index: 1;
-  position: absolute;
-}
-
-.input-slider {
-  position: absolute;
-  z-index: 2;
-  width: 100%;
-}
-
-.input-slider .slider {
-  -webkit-appearance: none;
-  z-index: 100;
-  width: 100%;
-  background-color: rgba(0, 0, 0, 0);
-}
-
-input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  border: none;
-  height: 40px;
-  width: 5px;
-  border-radius: 15px;
-  margin-top: -10px;
-  background: black;
-  cursor: ew-resize;
-}
-
-.voice-bar:has(.slider:focus) {
-  box-shadow: 0px 0px 8px gray;
-}
-
-.voice-bar:hover {
-  box-shadow: 0px 0px 4px gray;
+  font-size: 0.86rem;
 }
 
 #audio-text {
   color: gray;
-  font-size: 1rem;
-  margin-left: 0.5rem;
+  font-size: 0.95rem;
+  margin-left: 0.35rem;
 }
 
 .audio-switches input[type="checkbox"].toggle {
@@ -278,17 +176,18 @@ input[type="range"]::-webkit-slider-thumb {
 .audio-switches label {
   color: white;
   background-color: darkred;
-  width: 180px;
-  height: 35px;
+  width: 176px;
+  height: 26px;
   border: 2px solid black;
-  border-radius: 15px;
+  border-radius: 8px;
 
-  margin-left: 0.5rem;
-  margin-top: 0.25rem;
+  margin-left: 0.35rem;
+  margin-top: 0.3rem;
   display: flex;
   text-align: center;
   justify-content: center;
   align-items: center;
+  font-size: 0.82rem;
 
   cursor: pointer;
 }
@@ -300,8 +199,9 @@ input[type="range"]::-webkit-slider-thumb {
 .activity {
   display: flex;
   flex-direction: row;
-  margin-top: 0.5rem;
-  margin-left: 0.5rem;
+  margin-top: 0.45rem;
+  margin-left: 0.35rem;
+  align-items: center;
 }
 
 .activity img {
@@ -311,9 +211,9 @@ input[type="range"]::-webkit-slider-thumb {
 
 .game-activity {
   display: flex;
-  gap: 0.5rem;
-  max-width: 145px;
-  min-width: 145px;
+  gap: 0.45rem;
+  max-width: 140px;
+  min-width: 140px;
 
   justify-content: flex-start;
   align-items: center;
@@ -321,9 +221,8 @@ input[type="range"]::-webkit-slider-thumb {
 
 .settings-cog {
   flex-grow: 1;
-  width: 35px;
-  height: 35px;
-  margin-top: 0.2rem;
+  width: 34px;
+  height: 34px;
 
   border: 2px solid black;
   color: white;
@@ -338,7 +237,7 @@ input[type="range"]::-webkit-slider-thumb {
 
 #game-status {
   color: gray;
-  font-size: 1.4rem;
+  font-size: 1.35rem;
 }
 
 #version {

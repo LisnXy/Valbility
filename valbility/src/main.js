@@ -7,32 +7,28 @@ const {
   app,
   BrowserWindow,
   ipcMain,
-  globalShortcut,
+  Menu,
   shell,
+  Tray,
 } = require("electron");
 const path = require("path");
 
 // Local Data
 const config = require("./data/store");
 const { ProcessesListener } = require("./listeners/process-listener");
-const {
-  WindowChangeListener,
-  getActiveWindow,
-} = require("./listeners/window-change-listener");
+const { WindowChangeListener } = require("./listeners/window-change-listener");
 const { Mixer } = require("./mixer");
 
 // Node Modules
-const { keyboard, Key } = require("@nut-tree/nut-js");
 const { autoUpdater } = require("electron-updater");
+const { uIOhook, UiohookKey } = require("uiohook-napi");
 
 // Updater flags - Needed so it doesn't update twice
 autoUpdater.autoDownload = false;
 autoUpdater.autoInstallOnAppQuit = true;
-keyboard.config.autoDelayMs = 0;
 const isDevMode = false;
 
 let valorantMixer = new Mixer("VALORANT", "VALORANT");
-let riotClientMixer = new Mixer("RiotClientServices", "RiotClientServices.exe");
 
 const styles = {
   VALORANT: {
@@ -50,6 +46,12 @@ const styles = {
 };
 
 let mainWindow = null;
+let tray = null;
+let isQuitting = false;
+let isValorantFocused = false;
+let isRiotClientStarted = false;
+let isGameHotkeyDown = false;
+let isGlobalKeyListenerStarted = false;
 
 const createWindow = () => {
   // Creates the browser window.
@@ -80,30 +82,23 @@ const createWindow = () => {
     config.set(key, value);
   });
   ipcMain.on("mute-processes", (e, key, status) => {
-    if (key === "is-game-muted") {
-      status ? valorantMixer.mute() : valorantMixer.unmute();
-    } else {
-      status ? riotClientMixer.mute() : riotClientMixer.unmute();
-    }
+    config.set(key, status);
+    applyMuteState();
+  });
+
+  ipcMain.on("refresh-mute-state", () => {
+    applyMuteState();
   });
 
   ipcMain.on("register-new-hotkey", async (e, configKey, newKey) => {
     const oldKey = config.get(configKey);
-    globalShortcut.unregister(oldKey);
+    const canListenToKey = getUiohookKeyCode(newKey) !== null;
 
     // Resets keybind back to original keybind if invalid key to prevent app crashing.
-    try {
-      configKey === "toggle-voice-keybind"
-        ? createVoiceGlobalShortcut(newKey)
-        : createGameGlobalShortcut(newKey);
-
+    if (canListenToKey) {
       config.set(configKey, newKey);
-    } catch {
+    } else {
       mainWindow.webContents.send("update-keybind-text", oldKey, configKey);
-
-      configKey === "toggle-voice-keybind"
-        ? createVoiceGlobalShortcut(oldKey)
-        : createGameGlobalShortcut(oldKey);
     }
   });
 
@@ -128,41 +123,30 @@ const createWindow = () => {
     config.clear();
     mainWindow.webContents.reloadIgnoringCache();
 
-    // Resets keybinds
-    globalShortcut.unregisterAll();
-    createDefaultShortcuts();
-
     // Unmutes processes
     valorantMixer.unmute();
-    riotClientMixer.unmute();
+    isValorantFocused = false;
+    isRiotClientStarted = false;
   });
-
-  ipcMain.on("press-voice-key", async (e, action) => {
-    // Exits if focused process is not VALOARANT
-    const activeWin = await getActiveWindow();
-    if (
-      !activeWin ||
-      !activeWin.owner ||
-      !activeWin.owner.path.endsWith("VALORANT-Win64-Shipping.exe")
-    ) {
-      return;
-    }
-
-    action == "down"
-      ? await keyboard.pressKey(Key[config.get("valorant-voice-keybind")])
-      : await keyboard.releaseKey(Key[config.get("valorant-voice-keybind")]);
-  });
-
-  // Default shortcuts
-  createDefaultShortcuts();
 
   // Load main html to app window
   mainWindow.loadFile(path.join(__dirname, "public/index.html"));
+
+  mainWindow.on("close", (event) => {
+    if (isQuitting) {
+      return;
+    }
+
+    event.preventDefault();
+    mainWindow.hide();
+  });
 };
 
 // Waits for Electron initialization and creates browser window.
 app.whenReady().then(() => {
   createWindow();
+  createTray();
+  startGlobalKeyListener();
 
   const listener = new ProcessesListener([
     "RiotClientServices.exe",
@@ -175,16 +159,10 @@ app.whenReady().then(() => {
 
       valorantMixer.appStarted = true;
       await valorantMixer.ensureSessionIsSet();
-      config.get("is-game-muted")
-        ? valorantMixer.mute()
-        : valorantMixer.unmute();
 
-      await riotClientMixer.ensureSessionIsSet();
-      config.get("is-voice-muted")
-        ? riotClientMixer.mute()
-        : riotClientMixer.unmute();
+      applyMuteState();
     } else {
-      riotClientMixer.appStarted = true;
+      isRiotClientStarted = true;
       if (!valorantMixer.appStarted) updateStyle(styles.RiotClient);
     }
   });
@@ -192,20 +170,13 @@ app.whenReady().then(() => {
   listener.exited(async ({ name }) => {
     if (name === "VALORANT.exe") {
       valorantMixer.unmute();
-      riotClientMixer.unmute();
 
       valorantMixer.resetSession();
       valorantMixer.appStarted = false;
 
-      riotClientMixer.resetSession();
-      riotClientMixer.appStarted = false;
-
-      if (riotClientMixer.appStarted) {
-        updateStyle(styles.RiotClient);
-      } else {
-        updateStyle(styles.Offline);
-      }
+      updateStyle(isRiotClientStarted ? styles.RiotClient : styles.Offline);
     } else {
+      isRiotClientStarted = false;
       if (valorantMixer.appStarted) {
         updateStyle(styles.VALORANT);
       } else {
@@ -216,36 +187,17 @@ app.whenReady().then(() => {
 
   const changeListener = new WindowChangeListener();
 
-  changeListener.changed(async ({ windowInfo }) => {
-    const toMuteGame = config.get("is-game-muted");
-    const toMuteVoice = config.get("is-voice-muted");
-    if (!toMuteGame && !toMuteVoice) {
-      return;
-    }
-
-    if (
-      windowInfo.title.includes("VALORANT") &&
-      windowInfo.name.includes("VALORANT") &&
-      windowInfo.path.endsWith("VALORANT-Win64-Shipping.exe")
-    ) {
-      // VALORANT is in focus so unmute:
-      valorantMixer.unmute();
-      riotClientMixer.unmute();
-    } else {
-      // If current window is not VALORANT
-      if (toMuteGame) valorantMixer.mute();
-      if (toMuteVoice) riotClientMixer.mute();
-
-      // If the user tabs out while talking, it doesnt get stuck in the down press.
-      await keyboard.releaseKey(Key[config.get("valorant-voice-keybind")]);
-      return;
-    }
+  changeListener.changed(({ windowInfo }) => {
+    isValorantFocused = isValorantWindow(windowInfo);
+    applyMuteState();
   });
 
   // OS X / macOS specific.
   app.on("activate", () => {
-    if (BrowserWindow.getAllWindows().length === 0) {
+    if (!mainWindow) {
       createWindow();
+    } else {
+      showMainWindow();
     }
   });
 
@@ -286,16 +238,19 @@ autoUpdater.on("error", (info) => {
 
 // OS X / macOS specific.
 app.on("window-all-closed", () => {
-  if (process.platform !== "darwin") {
+  if (process.platform === "darwin") {
+    return;
+  }
+
+  if (isQuitting) {
     valorantMixer.unmute();
-    riotClientMixer.unmute();
     app.quit();
   }
 });
 
-// Volume unmute and global shortcut cleanup
+// Volume unmute and global key listener cleanup
 app.on("will-quit", () => {
-  globalShortcut.unregisterAll();
+  stopGlobalKeyListener();
 });
 
 // App's specific main process code (helper functions):
@@ -306,23 +261,131 @@ function updateStyle(style) {
   }, 1000);
 }
 
-// Not sure how to refactor. Maybe create class? Difficult because each shortcut needs to be unique
-function createVoiceGlobalShortcut(newKey) {
-  globalShortcut.register(newKey, () => {
-    const action = config.get("is-mic-enabled");
-    config.set("is-mic-enabled", !action);
-    // Action - true: startAudio, false: stopAudio
-    // Needs to be opposite of set function
-    mainWindow.webContents.send("toggle-voice", !action);
-  });
-}
-function createGameGlobalShortcut(newKey) {
-  globalShortcut.register(newKey, () => {
-    valorantMixer.flipMute();
-  });
+function isValorantWindow(windowInfo) {
+  return (
+    windowInfo.title.includes("VALORANT") &&
+    windowInfo.name.includes("VALORANT") &&
+    windowInfo.path.endsWith("VALORANT-Win64-Shipping.exe")
+  );
 }
 
-function createDefaultShortcuts() {
-  createVoiceGlobalShortcut(config.get("toggle-voice-keybind"));
-  createGameGlobalShortcut(config.get("toggle-game-keybind"));
+function shouldFocusMute() {
+  return config.get("is-focus-muted") && !isValorantFocused;
+}
+
+function applyMuteState() {
+  const shouldMuteGame = config.get("is-game-muted") || shouldFocusMute();
+
+  shouldMuteGame ? valorantMixer.mute() : valorantMixer.unmute();
+}
+
+function createTray() {
+  tray = new Tray(path.join(__dirname, "../../valbility/assets/icons/16_16.png"));
+  tray.setToolTip("Valbility");
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      {
+        label: "Show Valbility",
+        click: showMainWindow,
+      },
+      {
+        label: "Quit",
+        click: quitApp,
+      },
+    ])
+  );
+  tray.on("double-click", showMainWindow);
+}
+
+function showMainWindow() {
+  if (!mainWindow) {
+    createWindow();
+  }
+
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+function quitApp() {
+  isQuitting = true;
+  valorantMixer.unmute();
+  app.quit();
+}
+
+function startGlobalKeyListener() {
+  if (isGlobalKeyListenerStarted) {
+    return;
+  }
+
+  uIOhook.on("keydown", handleGlobalKeyDown);
+  uIOhook.on("keyup", handleGlobalKeyUp);
+  uIOhook.start();
+  isGlobalKeyListenerStarted = true;
+}
+
+function stopGlobalKeyListener() {
+  if (!isGlobalKeyListenerStarted) {
+    return;
+  }
+
+  uIOhook.off("keydown", handleGlobalKeyDown);
+  uIOhook.off("keyup", handleGlobalKeyUp);
+  uIOhook.stop();
+  isGlobalKeyListenerStarted = false;
+}
+
+function handleGlobalKeyDown(event) {
+  if (isGameHotkeyDown || event.keycode !== getCurrentGameHotkeyCode()) {
+    return;
+  }
+
+  isGameHotkeyDown = true;
+  toggleGameMute();
+}
+
+function handleGlobalKeyUp(event) {
+  if (event.keycode === getCurrentGameHotkeyCode()) {
+    isGameHotkeyDown = false;
+  }
+}
+
+function getCurrentGameHotkeyCode() {
+  return getUiohookKeyCode(config.get("toggle-game-keybind"));
+}
+
+function getUiohookKeyCode(key) {
+  const normalizedKey = normalizeKeyName(key);
+  return UiohookKey[normalizedKey] ?? null;
+}
+
+function normalizeKeyName(key) {
+  const aliases = {
+    " ": "Space",
+    Control: "Ctrl",
+    ArrowLeft: "ArrowLeft",
+    ArrowUp: "ArrowUp",
+    ArrowRight: "ArrowRight",
+    ArrowDown: "ArrowDown",
+    Esc: "Escape",
+  };
+
+  if (aliases[key]) {
+    return aliases[key];
+  }
+
+  if (key.length === 1) {
+    return key.toUpperCase();
+  }
+
+  return key;
+}
+
+function toggleGameMute() {
+  const isGameMuted = !config.get("is-game-muted");
+  config.set("is-game-muted", isGameMuted);
+  applyMuteState();
+
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("update-audio-toggle", "is-game-muted", isGameMuted);
+  }
 }
